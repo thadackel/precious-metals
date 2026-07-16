@@ -10,7 +10,7 @@ export async function GET() {
     {
       ...result,
       provider: "gold-api.com",
-      build: "gold-api-v2",
+      build: "gold-api-v3-2026-07-16",
     },
     {
       headers: {
