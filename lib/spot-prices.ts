@@ -5,6 +5,7 @@ export type SpotPriceResult = {
   updatedAt: string;
   source: "live" | "partial" | "fallback";
   liveMetals: MetalCode[];
+  diagnostics: Record<MetalCode, string>;
 };
 
 const symbols: Record<MetalCode, string> = {
@@ -82,14 +83,21 @@ function findPrice(payload: unknown, depth = 0): number | null {
   return null;
 }
 
-async function fetchMetalPrice(metal: MetalCode): Promise<number | null> {
+type MetalFetchResult = {
+  price: number | null;
+  diagnostic: string;
+};
+
+async function fetchMetalPrice(metal: MetalCode): Promise<MetalFetchResult> {
   const key = process.env.RAPIDAPI_KEY;
   const host = process.env.RAPIDAPI_HOST ?? "metal-sentinel.p.rapidapi.com";
 
-  if (!key) return null;
+  if (!key) {
+    return { price: null, diagnostic: "RAPIDAPI_KEY is missing" };
+  }
 
   const query = new URLSearchParams({
-    symbol: symbols[metal],
+    metal: symbols[metal],
     currency: "USD",
   });
 
@@ -104,18 +112,25 @@ async function fetchMetalPrice(metal: MetalCode): Promise<number | null> {
     });
 
     if (!response.ok) {
-      console.error(`Spot API request failed for ${metal}: ${response.status}`);
-      return null;
+      const body = await response.text();
+      const safeBody = body.slice(0, 180).replace(/\s+/g, " ");
+      return {
+        price: null,
+        diagnostic: `HTTP ${response.status}${safeBody ? `: ${safeBody}` : ""}`,
+      };
     }
 
     const price = findPrice(await response.json());
     if (price === null) {
-      console.error(`Spot API response did not contain a recognized price for ${metal}`);
+      return { price: null, diagnostic: "200 response, but no recognized price field" };
     }
-    return price;
+
+    return { price, diagnostic: "live" };
   } catch (error) {
-    console.error(`Spot API request failed for ${metal}`, error);
-    return null;
+    return {
+      price: null,
+      diagnostic: error instanceof Error ? error.message : "Unknown request error",
+    };
   }
 }
 
@@ -124,11 +139,14 @@ export async function getSpotPrices(): Promise<SpotPriceResult> {
   const results = await Promise.all(metals.map(fetchMetalPrice));
   const prices = { ...demoSpotPrices };
   const liveMetals: MetalCode[] = [];
+  const diagnostics = {} as Record<MetalCode, string>;
 
   metals.forEach((metal, index) => {
-    const price = results[index];
-    if (price !== null) {
-      prices[metal] = price;
+    const result = results[index];
+    diagnostics[metal] = result.diagnostic;
+
+    if (result.price !== null) {
+      prices[metal] = result.price;
       liveMetals.push(metal);
     }
   });
@@ -143,5 +161,6 @@ export async function getSpotPrices(): Promise<SpotPriceResult> {
           ? "partial"
           : "fallback",
     liveMetals,
+    diagnostics,
   };
 }
