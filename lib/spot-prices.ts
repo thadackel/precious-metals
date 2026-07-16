@@ -7,11 +7,11 @@ export type SpotPriceResult = {
   liveMetals: MetalCode[];
 };
 
-const endpoints: Record<MetalCode, string> = {
-  gold: "/gold-price?currency=USD",
-  silver: "/silver-price?currency=USD",
-  platinum: "/platinum-price?currency=USD",
-  palladium: "/palladium-price?currency=USD",
+const symbols: Record<MetalCode, string> = {
+  gold: "AU",
+  silver: "AG",
+  platinum: "PT",
+  palladium: "PD",
 };
 
 const preferredKeys = [
@@ -25,6 +25,7 @@ const preferredKeys = [
   "close",
   "ask",
   "mid",
+  "24k",
 ];
 
 function toPositiveNumber(value: unknown): number | null {
@@ -41,10 +42,7 @@ function toPositiveNumber(value: unknown): number | null {
 }
 
 function findPrice(payload: unknown, depth = 0): number | null {
-  if (depth > 6) return null;
-
-  const direct = toPositiveNumber(payload);
-  if (direct !== null) return direct;
+  if (depth > 6 || payload === null || payload === undefined) return null;
 
   if (Array.isArray(payload)) {
     for (const item of payload) {
@@ -54,24 +52,28 @@ function findPrice(payload: unknown, depth = 0): number | null {
     return null;
   }
 
-  if (payload && typeof payload === "object") {
-    const record = payload as Record<string, unknown>;
+  if (typeof payload !== "object") return null;
 
-    for (const key of preferredKeys) {
-      if (key in record) {
-        const found = toPositiveNumber(record[key]);
-        if (found !== null) return found;
-      }
+  const record = payload as Record<string, unknown>;
+
+  for (const key of preferredKeys) {
+    if (key in record) {
+      const found = toPositiveNumber(record[key]);
+      if (found !== null) return found;
     }
+  }
 
-    for (const [key, value] of Object.entries(record)) {
-      if (/price|spot|rate|value|close|ask|mid/i.test(key)) {
-        const found = findPrice(value, depth + 1);
-        if (found !== null) return found;
-      }
+  for (const [key, value] of Object.entries(record)) {
+    if (/price|spot|rate|value|close|ask|mid|ounce|oz/i.test(key)) {
+      const direct = toPositiveNumber(value);
+      if (direct !== null) return direct;
+      const nested = findPrice(value, depth + 1);
+      if (nested !== null) return nested;
     }
+  }
 
-    for (const value of Object.values(record)) {
+  for (const value of Object.values(record)) {
+    if (value && typeof value === "object") {
       const found = findPrice(value, depth + 1);
       if (found !== null) return found;
     }
@@ -86,8 +88,13 @@ async function fetchMetalPrice(metal: MetalCode): Promise<number | null> {
 
   if (!key) return null;
 
+  const query = new URLSearchParams({
+    symbol: symbols[metal],
+    currency: "USD",
+  });
+
   try {
-    const response = await fetch(`https://${host}${endpoints[metal]}`, {
+    const response = await fetch(`https://${host}/api/metal-quote?${query}`, {
       headers: {
         "x-rapidapi-key": key,
         "x-rapidapi-host": host,
@@ -101,7 +108,11 @@ async function fetchMetalPrice(metal: MetalCode): Promise<number | null> {
       return null;
     }
 
-    return findPrice(await response.json());
+    const price = findPrice(await response.json());
+    if (price === null) {
+      console.error(`Spot API response did not contain a recognized price for ${metal}`);
+    }
+    return price;
   } catch (error) {
     console.error(`Spot API request failed for ${metal}`, error);
     return null;
