@@ -20,12 +20,23 @@ function formatUpdatedAt(value: string) {
   }).format(new Date(value));
 }
 
+function formatWeight(weightOz: number) {
+  if (weightOz === 32.1507) return "1 kilo";
+  if (weightOz === 0.321507) return "10 gram";
+  if (weightOz === 0.160754) return "5 gram";
+  if (weightOz === 0.0321507) return "1 gram";
+  return `${Number(weightOz.toFixed(4))} oz`;
+}
+
 export default async function Home() {
   const market = await getSpotPrices();
   const spotPrices = market.prices;
-  const featuredProducts = products.filter((product) => product.featured);
   const isLive = market.source === "live";
-  const marketLabel = isLive ? "Live market" : market.source === "partial" ? "Partial live market" : "Fallback market";
+  const marketLabel = isLive
+    ? "Live market"
+    : market.source === "partial"
+      ? "Partial live market"
+      : "Fallback market";
 
   return (
     <main>
@@ -53,8 +64,9 @@ export default async function Home() {
             <p className="eyebrow">Transparent pricing. Updated automatically.</p>
             <h1>Major precious-metal products priced from live spot.</h1>
             <p className="hero-lead">
-              Compare coins, rounds, and bars with clear spot-plus-premium pricing.
-              Market data is retrieved securely on the server and refreshed every three minutes.
+              Compare {products.length} popular coins, rounds, bags, and bars with
+              clear spot-plus-premium pricing. Market data is retrieved securely
+              on the server and refreshed every three minutes.
             </p>
             <div className="hero-actions">
               <a className="button button-primary" href="#products">Browse products</a>
@@ -63,7 +75,7 @@ export default async function Home() {
             <div className="trust-row">
               <span>Server-side API</span>
               <span>3-minute refresh</span>
-              <span>Mobile friendly</span>
+              <span>{products.length} live-priced products</span>
             </div>
           </div>
 
@@ -121,13 +133,16 @@ export default async function Home() {
       <section className="products-section section" id="products">
         <div className="shell">
           <div className="section-heading">
-            <p className="eyebrow">Featured inventory</p>
-            <h2>Popular coins and bars</h2>
-            <p>Every displayed price is calculated from metal content plus the assigned product premium.</p>
+            <p className="eyebrow">Live product catalog</p>
+            <h2>Major bullion coins, rounds, bags, and bars</h2>
+            <p>
+              Every displayed price is calculated from live metal content plus
+              the assigned product premium.
+            </p>
           </div>
 
           <div className="product-grid">
-            {featuredProducts.map((product) => {
+            {products.map((product) => {
               const spot = spotPrices[product.metal];
               const price = calculateProductPrice(product, spot);
 
@@ -138,14 +153,16 @@ export default async function Home() {
                     <span className="category-badge">{product.category}</span>
                   </div>
                   <div className="product-body">
-                    <p className="product-metal">{metalLabels[product.metal]} · {product.weightOz} oz</p>
+                    <p className="product-metal">
+                      {metalLabels[product.metal]} · {formatWeight(product.weightOz)}
+                    </p>
                     <h3>{product.name}</h3>
                     <div className="price-line">
                       <strong>{formatCurrency(price)}</strong>
-                      <span>Spot + {formatCurrency(product.premium)}</span>
+                      <span>Premium +{formatCurrency(product.premium)}</span>
                     </div>
                     <div className="product-meta">
-                      <span>{(product.purity * 100).toFixed(product.purity === 1 ? 0 : 2)}% purity</span>
+                      <span>{(product.purity * 100).toFixed(product.purity === 1 ? 0 : 2)}% fine-metal basis</span>
                       <span>{market.liveMetals.includes(product.metal) ? "Live spot" : "Fallback spot"}</span>
                     </div>
                     <button type="button" className="product-button">View pricing details</button>
@@ -163,8 +180,9 @@ export default async function Home() {
             <p className="eyebrow">Simple and auditable</p>
             <h2>How each product price is calculated</h2>
             <p>
-              The market API supplies spot. Each product record controls weight,
-              purity, and premium, allowing prices to update without editing the page.
+              The market API supplies spot. Each product record controls fine-metal
+              weight, purity basis, and premium, allowing prices to update without
+              editing the page.
             </p>
           </div>
           <div className="formula-card">
@@ -173,7 +191,7 @@ export default async function Home() {
             <div className="formula-example">
               <span>Example: 10 oz silver bar</span>
               <b>{formatCurrency(spotPrices.silver)} × 10 × .999 + {formatCurrency(28)}</b>
-              <em>= {formatCurrency(calculateProductPrice(products[5], spotPrices.silver))}</em>
+              <em>= {formatCurrency(calculateProductPrice(products.find((product) => product.slug === "10-oz-silver-bar")!, spotPrices.silver))}</em>
             </div>
           </div>
         </div>
@@ -184,7 +202,10 @@ export default async function Home() {
           <div>
             <p className="eyebrow">Live pricing connected</p>
             <h2>Request a current bullion quote</h2>
-            <p>Displayed estimates update from spot every three minutes. Final availability and transaction pricing must be confirmed.</p>
+            <p>
+              Displayed estimates update from spot every three minutes. Final
+              availability and transaction pricing must be confirmed.
+            </p>
           </div>
           <a className="button button-light" href="mailto:quotes@example.com">Request a quote</a>
         </div>
