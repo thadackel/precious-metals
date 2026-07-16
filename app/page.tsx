@@ -5,6 +5,7 @@ import {
   metalLabels,
   products,
   type MetalCode,
+  type Product,
 } from "@/lib/metals";
 import { getSpotPrices } from "@/lib/spot-prices";
 
@@ -26,6 +27,23 @@ function formatWeight(weightOz: number) {
   if (weightOz === 0.160754) return "5 gram";
   if (weightOz === 0.0321507) return "1 gram";
   return `${Number(weightOz.toFixed(4))} oz`;
+}
+
+function getProductImage(product: Product) {
+  const slug = product.slug;
+
+  if (slug.includes("american-gold-eagle")) return "/products/v3-gold-eagle.svg";
+  if (slug.includes("gold-buffalo")) return "/products/v3-gold-buffalo.svg";
+  if (slug.includes("canadian-gold-maple")) return "/products/v3-gold-maple.svg";
+  if (slug.includes("krugerrand")) return "/products/v3-gold-krugerrand.svg";
+  if (slug.includes("american-silver-eagle")) return "/products/v3-silver-eagle.svg";
+  if (slug.includes("canadian-silver-maple")) return "/products/v3-silver-maple.svg";
+  if (slug.includes("britannia")) return "/products/v3-silver-britannia.svg";
+  if (slug.includes("silver-round") || product.category === "Bag") return "/products/v3-silver-round.svg";
+  if (product.metal === "platinum" && product.category === "Coin") return "/products/v3-silver-eagle.svg";
+  if (product.metal === "palladium" && product.category === "Coin") return "/products/v3-silver-maple.svg";
+
+  return product.image;
 }
 
 export default async function Home() {
@@ -85,8 +103,8 @@ export default async function Home() {
               <span className="live-pill"><i /> {marketLabel}</span>
             </div>
             <Image
-              src="/products/gold-coin.svg"
-              alt="Illustration of a one ounce gold coin"
+              src="/products/v3-gold-eagle.svg"
+              alt="Illustration of a one ounce American Gold Eagle"
               width={640}
               height={480}
               priority
@@ -149,7 +167,7 @@ export default async function Home() {
               return (
                 <article className="product-card" key={product.slug}>
                   <div className={`product-image ${product.metal}`}>
-                    <Image src={product.image} alt={product.name} width={640} height={480} />
+                    <Image src={getProductImage(product)} alt={product.name} width={640} height={480} />
                     <span className="category-badge">{product.category}</span>
                   </div>
                   <div className="product-body">
