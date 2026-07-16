@@ -1,17 +1,31 @@
 import Image from "next/image";
 import {
   calculateProductPrice,
-  demoSpotPrices,
   formatCurrency,
   metalLabels,
   products,
   type MetalCode,
 } from "@/lib/metals";
+import { getSpotPrices } from "@/lib/spot-prices";
+
+export const revalidate = 180;
 
 const metalOrder: MetalCode[] = ["gold", "silver", "platinum", "palladium"];
 
-export default function Home() {
+function formatUpdatedAt(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/Chicago",
+  }).format(new Date(value));
+}
+
+export default async function Home() {
+  const market = await getSpotPrices();
+  const spotPrices = market.prices;
   const featuredProducts = products.filter((product) => product.featured);
+  const isLive = market.source === "live";
+  const marketLabel = isLive ? "Live market" : market.source === "partial" ? "Partial live market" : "Fallback market";
 
   return (
     <main>
@@ -40,15 +54,15 @@ export default function Home() {
             <h1>Major precious-metal products priced from live spot.</h1>
             <p className="hero-lead">
               Compare coins, rounds, and bars with clear spot-plus-premium pricing.
-              The site is now structured for a secure RapidAPI market feed.
+              Market data is retrieved securely on the server and refreshed every three minutes.
             </p>
             <div className="hero-actions">
               <a className="button button-primary" href="#products">Browse products</a>
               <a className="button button-secondary" href="#pricing">View pricing formula</a>
             </div>
             <div className="trust-row">
-              <span>Server-side API ready</span>
-              <span>3-minute refresh target</span>
+              <span>Server-side API</span>
+              <span>3-minute refresh</span>
               <span>Mobile friendly</span>
             </div>
           </div>
@@ -56,7 +70,7 @@ export default function Home() {
           <div className="hero-panel" aria-label="Pricing example">
             <div className="panel-topline">
               <span>Featured quote</span>
-              <span className="live-pill"><i /> Demo market</span>
+              <span className="live-pill"><i /> {marketLabel}</span>
             </div>
             <Image
               src="/products/gold-coin.svg"
@@ -68,7 +82,7 @@ export default function Home() {
             <div className="quote-row">
               <div>
                 <small>1 oz American Gold Eagle</small>
-                <strong>{formatCurrency(calculateProductPrice(products[0], demoSpotPrices.gold))}</strong>
+                <strong>{formatCurrency(calculateProductPrice(products[0], spotPrices.gold))}</strong>
               </div>
               <div className="premium-chip">Spot + {formatCurrency(products[0].premium)}</div>
             </div>
@@ -83,7 +97,9 @@ export default function Home() {
               <p className="eyebrow">Market dashboard</p>
               <h2>Spot prices per troy ounce</h2>
             </div>
-            <p className="data-note">Demonstration values until the RapidAPI key is connected.</p>
+            <p className="data-note">
+              {marketLabel} · Updated {formatUpdatedAt(market.updatedAt)} CT
+            </p>
           </div>
 
           <div className="spot-grid">
@@ -94,7 +110,7 @@ export default function Home() {
                   <span>{metalLabels[metal]}</span>
                   <small>X{metal === "gold" ? "AU" : metal === "silver" ? "AG" : metal === "platinum" ? "PT" : "PD"}</small>
                 </div>
-                <strong>{formatCurrency(demoSpotPrices[metal])}</strong>
+                <strong>{formatCurrency(spotPrices[metal])}</strong>
                 <p>USD / troy oz</p>
               </article>
             ))}
@@ -112,7 +128,7 @@ export default function Home() {
 
           <div className="product-grid">
             {featuredProducts.map((product) => {
-              const spot = demoSpotPrices[product.metal];
+              const spot = spotPrices[product.metal];
               const price = calculateProductPrice(product, spot);
 
               return (
@@ -130,7 +146,7 @@ export default function Home() {
                     </div>
                     <div className="product-meta">
                       <span>{(product.purity * 100).toFixed(product.purity === 1 ? 0 : 2)}% purity</span>
-                      <span>Live-price ready</span>
+                      <span>{market.liveMetals.includes(product.metal) ? "Live spot" : "Fallback spot"}</span>
                     </div>
                     <button type="button" className="product-button">View pricing details</button>
                   </div>
@@ -147,7 +163,7 @@ export default function Home() {
             <p className="eyebrow">Simple and auditable</p>
             <h2>How each product price is calculated</h2>
             <p>
-              The market API supplies spot. Your product record controls weight,
+              The market API supplies spot. Each product record controls weight,
               purity, and premium, allowing prices to update without editing the page.
             </p>
           </div>
@@ -156,8 +172,8 @@ export default function Home() {
             <strong>(Spot × Weight × Purity) + Premium</strong>
             <div className="formula-example">
               <span>Example: 10 oz silver bar</span>
-              <b>{formatCurrency(demoSpotPrices.silver)} × 10 × .999 + {formatCurrency(28)}</b>
-              <em>= {formatCurrency(calculateProductPrice(products[5], demoSpotPrices.silver))}</em>
+              <b>{formatCurrency(spotPrices.silver)} × 10 × .999 + {formatCurrency(28)}</b>
+              <em>= {formatCurrency(calculateProductPrice(products[5], spotPrices.silver))}</em>
             </div>
           </div>
         </div>
@@ -166,9 +182,9 @@ export default function Home() {
       <section className="next-step section" id="contact">
         <div className="shell callout">
           <div>
-            <p className="eyebrow">Next connection</p>
-            <h2>Ready for the live RapidAPI feed</h2>
-            <p>The visual catalog and pricing engine are in place. The next release will replace demo spot values with secured server-side market data.</p>
+            <p className="eyebrow">Live pricing connected</p>
+            <h2>Request a current bullion quote</h2>
+            <p>Displayed estimates update from spot every three minutes. Final availability and transaction pricing must be confirmed.</p>
           </div>
           <a className="button button-light" href="mailto:quotes@example.com">Request a quote</a>
         </div>
@@ -180,7 +196,7 @@ export default function Home() {
             <span className="brand-mark">PM</span>
             <span><strong>Precious Metals</strong><small>Live bullion pricing</small></span>
           </div>
-          <p>Prices shown are demonstrations and are not offers to buy or sell.</p>
+          <p>Prices are estimates based on market data and assigned premiums, not binding offers to buy or sell.</p>
         </div>
       </footer>
     </main>
