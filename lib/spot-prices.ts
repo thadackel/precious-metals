@@ -10,11 +10,11 @@ export type SpotPriceResult = {
 
 const metals: MetalCode[] = ["gold", "silver", "platinum", "palladium"];
 
-const aliases: Record<MetalCode, string[]> = {
-  gold: ["gold", "xau", "au"],
-  silver: ["silver", "xag", "ag"],
-  platinum: ["platinum", "xpt", "pt"],
-  palladium: ["palladium", "xpd", "pd"],
+const symbols: Record<MetalCode, string> = {
+  gold: "XAU",
+  silver: "XAG",
+  platinum: "XPT",
+  palladium: "XPD",
 };
 
 function toPositiveNumber(value: unknown): number | null {
@@ -30,133 +30,49 @@ function toPositiveNumber(value: unknown): number | null {
   return null;
 }
 
-function findNumberInValue(value: unknown, depth = 0): number | null {
-  if (depth > 6 || value === null || value === undefined) return null;
-
-  const direct = toPositiveNumber(value);
-  if (direct !== null) return direct;
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = findNumberInValue(item, depth + 1);
-      if (found !== null) return found;
-    }
-    return null;
-  }
-
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const preferred = [
-      "price",
-      "current_price",
-      "currentPrice",
-      "spot_price",
-      "spotPrice",
-      "value",
-      "rate",
-      "close",
-      "ask",
-      "mid",
-      "usd",
-      "USD",
-    ];
-
-    for (const key of preferred) {
-      if (key in record) {
-        const found = findNumberInValue(record[key], depth + 1);
-        if (found !== null) return found;
-      }
-    }
-
-    for (const [key, nested] of Object.entries(record)) {
-      if (/price|spot|rate|value|close|ask|mid|ounce|oz|usd/i.test(key)) {
-        const found = findNumberInValue(nested, depth + 1);
-        if (found !== null) return found;
-      }
-    }
-  }
-
-  return null;
-}
-
-function findMetalPrice(payload: unknown, metal: MetalCode, depth = 0): number | null {
-  if (depth > 7 || payload === null || payload === undefined) return null;
-
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      if (item && typeof item === "object") {
-        const record = item as Record<string, unknown>;
-        const label = [record.metal, record.symbol, record.code, record.name]
-          .filter((value): value is string => typeof value === "string")
-          .join(" ")
-          .toLowerCase();
-
-        if (aliases[metal].some((alias) => label === alias || label.includes(alias))) {
-          const found = findNumberInValue(record);
-          if (found !== null) return found;
-        }
-      }
-
-      const nested = findMetalPrice(item, metal, depth + 1);
-      if (nested !== null) return nested;
-    }
-    return null;
-  }
-
-  if (typeof payload !== "object") return null;
+function extractPrice(payload: unknown): number | null {
+  if (!payload || typeof payload !== "object") return null;
 
   const record = payload as Record<string, unknown>;
+  const preferredKeys = [
+    "price",
+    "current_price",
+    "currentPrice",
+    "spot_price",
+    "spotPrice",
+    "value",
+    "rate",
+    "ask",
+    "mid",
+    "close",
+  ];
 
-  for (const [key, value] of Object.entries(record)) {
-    const normalized = key.toLowerCase().replace(/[^a-z]/g, "");
-    if (aliases[metal].some((alias) => normalized === alias || normalized.includes(alias))) {
-      const found = findNumberInValue(value);
-      if (found !== null) return found;
+  for (const key of preferredKeys) {
+    if (key in record) {
+      const price = toPositiveNumber(record[key]);
+      if (price !== null) return price;
     }
   }
 
-  for (const value of Object.values(record)) {
-    if (value && typeof value === "object") {
-      const nested = findMetalPrice(value, metal, depth + 1);
-      if (nested !== null) return nested;
+  for (const [key, value] of Object.entries(record)) {
+    if (/price|spot|rate|value|ask|mid|close/i.test(key)) {
+      const price = toPositiveNumber(value);
+      if (price !== null) return price;
     }
   }
 
   return null;
 }
 
-export async function getSpotPrices(): Promise<SpotPriceResult> {
-  const key = process.env.RAPIDAPI_KEY;
-  const host =
-    process.env.RAPIDAPI_HOST ??
-    "metals-live-prices-gold-silver-platinum-palladium.p.rapidapi.com";
-
-  const prices = { ...demoSpotPrices };
-  const liveMetals: MetalCode[] = [];
-  const diagnostics = Object.fromEntries(
-    metals.map((metal) => [metal, "fallback"]),
-  ) as Record<MetalCode, string>;
-
-  if (!key) {
-    metals.forEach((metal) => {
-      diagnostics[metal] = "RAPIDAPI_KEY is missing";
-    });
-
-    return {
-      prices,
-      updatedAt: new Date().toISOString(),
-      source: "fallback",
-      liveMetals,
-      diagnostics,
-    };
-  }
+async function fetchMetalPrice(
+  metal: MetalCode,
+): Promise<{ price: number | null; diagnostic: string }> {
+  const symbol = symbols[metal];
 
   try {
-    const response = await fetch(`https://${host}/?currency=ALL`, {
+    const response = await fetch(`https://api.gold-api.com/price/${symbol}`, {
       headers: {
-        "Content-Type": "application/json",
-        "x-rapidapi-key": key,
-        "x-rapidapi-host": host,
+        Accept: "application/json",
       },
       next: { revalidate: 180 },
     });
@@ -164,17 +80,9 @@ export async function getSpotPrices(): Promise<SpotPriceResult> {
     const text = await response.text();
 
     if (!response.ok) {
-      const message = `HTTP ${response.status}: ${text.slice(0, 300)}`;
-      metals.forEach((metal) => {
-        diagnostics[metal] = message;
-      });
-
       return {
-        prices,
-        updatedAt: new Date().toISOString(),
-        source: "fallback",
-        liveMetals,
-        diagnostics,
+        price: null,
+        diagnostic: `HTTP ${response.status}: ${text.slice(0, 200)}`,
       };
     }
 
@@ -182,35 +90,45 @@ export async function getSpotPrices(): Promise<SpotPriceResult> {
     try {
       payload = JSON.parse(text);
     } catch {
-      metals.forEach((metal) => {
-        diagnostics[metal] = "API returned non-JSON data";
-      });
+      return { price: null, diagnostic: "Gold API returned non-JSON data" };
+    }
 
+    const price = extractPrice(payload);
+    if (price === null) {
       return {
-        prices,
-        updatedAt: new Date().toISOString(),
-        source: "fallback",
-        liveMetals,
-        diagnostics,
+        price: null,
+        diagnostic: `No recognized price for ${symbol}`,
       };
     }
 
-    metals.forEach((metal) => {
-      const price = findMetalPrice(payload, metal);
-      if (price !== null) {
-        prices[metal] = price;
-        liveMetals.push(metal);
-        diagnostics[metal] = "live";
-      } else {
-        diagnostics[metal] = "No recognized price in API response";
-      }
-    });
+    return { price, diagnostic: "live" };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown request error";
-    metals.forEach((metal) => {
-      diagnostics[metal] = message;
-    });
+    return {
+      price: null,
+      diagnostic:
+        error instanceof Error ? error.message : "Unknown Gold API request error",
+    };
   }
+}
+
+export async function getSpotPrices(): Promise<SpotPriceResult> {
+  const prices = { ...demoSpotPrices };
+  const liveMetals: MetalCode[] = [];
+  const diagnostics = Object.fromEntries(
+    metals.map((metal) => [metal, "fallback"]),
+  ) as Record<MetalCode, string>;
+
+  const results = await Promise.all(metals.map(fetchMetalPrice));
+
+  metals.forEach((metal, index) => {
+    const result = results[index];
+    diagnostics[metal] = result.diagnostic;
+
+    if (result.price !== null) {
+      prices[metal] = result.price;
+      liveMetals.push(metal);
+    }
+  });
 
   return {
     prices,
