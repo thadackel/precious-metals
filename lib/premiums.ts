@@ -1,7 +1,7 @@
 import { products as fallbackProducts, type Product } from "@/lib/metals";
 
-const DEFAULT_SHEET_ID = "1tPoNPOkMP8hTSaByrbSCNJXJ28KN8tVB26Oguh5b_mw";
-const DEFAULT_SHEET_NAME = "Premiums";
+const DEFAULT_PUBLISHED_CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQwzBCAnSVTTB6YDQ8XtOGNhXFACosKMRbbBy31YrDNnhal4ShUDWZBZ1Kq1V2iq0cxWymKL3Ijbq73/pub?gid=1481295814&single=true&output=csv";
 
 export type PremiumCatalog = {
   products: Product[];
@@ -61,9 +61,7 @@ function parsePremium(value: string) {
 }
 
 export async function getProductsWithPremiums(): Promise<PremiumCatalog> {
-  const sheetId = process.env.GOOGLE_PREMIUM_SHEET_ID || DEFAULT_SHEET_ID;
-  const sheetName = process.env.GOOGLE_PREMIUM_SHEET_NAME || DEFAULT_SHEET_NAME;
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+  const url = process.env.GOOGLE_PREMIUM_CSV_URL || DEFAULT_PUBLISHED_CSV_URL;
 
   try {
     const response = await fetch(url, {
@@ -109,6 +107,14 @@ export async function getProductsWithPremiums(): Promise<PremiumCatalog> {
 
     if (sheetRows.size === 0) {
       throw new Error("No valid premium rows were found");
+    }
+
+    const matchedProducts = fallbackProducts.filter((product) =>
+      sheetRows.has(product.slug),
+    );
+
+    if (matchedProducts.length === 0) {
+      throw new Error("No spreadsheet Product IDs matched the website catalog");
     }
 
     const products = fallbackProducts
