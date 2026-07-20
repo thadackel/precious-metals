@@ -72,8 +72,24 @@ h2 { margin-bottom: 16px; font-family: Georgia, "Times New Roman", serif; font-s
 .spot-card p { margin: 0; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
 
 .products-section { background: #eeeae1; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.product-menu { position: sticky; top: 98px; z-index: 10; margin-bottom: 52px; padding: 22px; border: 1px solid #d4d0c5; border-radius: 22px; background: rgba(255,255,255,.94); box-shadow: 0 16px 40px rgba(34,39,37,.1); backdrop-filter: blur(14px); }
+.product-type-links { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 18px; }
+.type-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 16px; border: 1px solid #dedbd1; border-radius: 14px; background: #faf9f5; font-weight: 800; transition: transform .18s ease, border-color .18s ease; }
+.type-link:hover { transform: translateY(-2px); border-color: #b89a53; }
+.type-link small { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.type-link.gold { border-left: 5px solid #c9982f; }
+.type-link.silver { border-left: 5px solid #9ba5ad; }
+.type-link.platinum { border-left: 5px solid #63727d; }
+.type-link.palladium { border-left: 5px solid #446271; }
+.product-select-label { display: block; margin-bottom: 8px; color: var(--deep); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+.product-select { width: 100%; min-height: 50px; padding: 0 46px 0 15px; border: 1px solid #cfcac0; border-radius: 12px; background: white; color: var(--ink); font-size: 15px; font-weight: 700; cursor: pointer; }
+.product-groups { display: grid; gap: 72px; }
+.product-group { scroll-margin-top: 190px; }
+.product-group-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid #d3cfc4; }
+.product-group-heading h3 { margin: 0; font-family: Georgia,serif; font-size: clamp(28px,3vw,40px); }
+.product-group-heading > span { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
 .product-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; }
-.product-card { overflow: hidden; border: 1px solid #d9d5ca; border-radius: 22px; background: var(--card); box-shadow: 0 14px 34px rgba(34,39,37,.06); transition: transform .2s ease, box-shadow .2s ease; }
+.product-card { scroll-margin-top: 190px; overflow: hidden; border: 1px solid #d9d5ca; border-radius: 22px; background: var(--card); box-shadow: 0 14px 34px rgba(34,39,37,.06); transition: transform .2s ease, box-shadow .2s ease; }
 .product-card:hover { transform: translateY(-5px); box-shadow: 0 20px 45px rgba(34,39,37,.12); }
 .product-image { position: relative; padding: 13px; background: #f4f1e9; }
 .product-image img { display: block; width: 100%; height: auto; border-radius: 14px; }
@@ -114,6 +130,7 @@ h2 { margin-bottom: 16px; font-family: Georgia, "Times New Roman", serif; font-s
   .hero-grid { gap: 45px; }
   .spot-grid { grid-template-columns: repeat(2,1fr); }
   .product-grid { grid-template-columns: repeat(2,1fr); }
+  .product-type-links { grid-template-columns: repeat(2,1fr); }
 }
 
 @media (max-width: 620px) {
@@ -123,9 +140,11 @@ h2 { margin-bottom: 16px; font-family: Georgia, "Times New Roman", serif; font-s
   .nav-cta { padding: 10px 12px; font-size: 12px; }
   .hero { padding: 58px 0 70px; }
   h1 { font-size: 48px; }
-  .split-heading,.callout,.footer-inner { align-items: flex-start; flex-direction: column; }
+  .split-heading,.callout,.footer-inner,.product-group-heading { align-items: flex-start; flex-direction: column; }
   .data-note { text-align: left; }
-  .spot-grid,.product-grid { grid-template-columns: 1fr; }
+  .spot-grid,.product-grid,.product-type-links { grid-template-columns: 1fr; }
+  .product-menu { position: static; padding: 16px; }
+  .product-groups { gap: 54px; }
   .callout { padding: 30px 24px; }
   .button-light { width: 100%; }
 }
